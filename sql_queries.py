@@ -17,50 +17,130 @@ time_table_drop = "DROP TABLE IF EXISTS times"
 
 # CREATE TABLES
 
-staging_events_table_create= ("""
-""")
 
-staging_songs_table_create = ("""
-""")
 
-songplay_table_create = ("""
-""")
+staging_events_table_create= ("""  CREATE TABLE IF NOT EXISTS staging_events
+							( artist TEXT,
+						    auth TEXT,
+						    first_name TEXT,
+						    gender TEXT,
+						    item_in_session INTEGER,
+						    last_name TEXT,
+						    length FLOAT,
+						    level TEXT,
+						    location TEXT,
+						    method TEXT,
+						    page TEXT,
+						    registration FLOAT,
+						    session_id INT,
+						    song TEXT,
+						    status INTEGER,
+						    ts INT,
+						    user_agent TEXT,
+						    user_id TEXT );""")
 
-user_table_create = ("""
-""")
+staging_songs_table_create = ("""  CREATE TABLE IF NOT EXISTS 
+									(artist_id TEXT,
+									artist_latitude FLOAT,
+									artist location TEXT,
+									artist longitude FLOAT,
+									artist_name TEXT,
+									duration FLOAT,
+									num_songs INT,
+									song_id TEXT,
+									year INT); """)
 
-song_table_create = ("""
-""")
+songplay_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
+    ( songplay_id INT IDENTITY(0,1) PRIMARY KEY,
+    	start_time TIMESTAMP SORTKEY,
+    	user_id TEXT DISTKEY,
+    	level TEXT,
+    	song_id TEXT,
+    	artist_id TEXT,
+    	session_id INT,
+    	location TEXT,
+    	user_agent TEXT) DISTSTYLE KEY;""")
 
-artist_table_create = ("""
-""")
+user_table_create = ("""CREATE TABLE IF NOT EXISTS users
+	(user_id TEXT PRIMARY KEY SORTKEY,
+	first_name TEXT,
+	last_name TEXT,
+	gender TEXT,
+	LEVEL TEXT) DISTSTYLE ALL;""")
 
-time_table_create = ("""
+song_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
+	(song_id TEXT PRIMARY KEY SORTKEY,
+		title TEXT,
+		artist_id TEXT DISTKEY, 
+		year INT,
+		duration FLOAT,) DISTSTYLE ALL;""")
+
+artist_table_create = (""" CREATE TABLE IF NOT EXISTS artists
+	(artist_id TEXT PRIMARY KEY SORTKEY,
+	 name TEXT,
+	 location TEXT,
+	 latitude FLOAT,
+	 longitude FLOAT) DISTSTYLE ALL;""")
+
+time_table_create = (""" CREATE TABLE IF NOT EXISTS times 
+	(start_time TIMESTAMP PRIMARY KEY SORTKEY,
+	hour INT, 
+	day INT,
+	week INT, 
+	month INT, 
+	year INT DISTKEY, 
+	weekday INT)
 """)
 
 # STAGING TABLES
 
-staging_events_copy = ("""
-""").format()
+staging_events_copy = ("""COPY staging_events FROM {} IAM_ROLE '{}' JSON {} region '{}';
+	""").format(
+	config['S3']['LOG_DATA'],
+    config['IAM_ROLE']['ARN'],
+    config['S3']['LOG_JSONPATH'],
+    config['CLUSTER']['REGION'])
 
-staging_songs_copy = ("""
-""").format()
+staging_songs_copy = (""" COPY staging_songs FROM {} IAM_ROLE '{}' JSON {} region '{}';
+""").format(
+	config['S3']['LOG_DATA'],
+    config['IAM_ROLE']['ARN'],
+    config['S3']['LOG_JSONPATH'],
+    config['CLUSTER']['REGION'])
 
 # FINAL TABLES
 
-songplay_table_insert = ("""
+songplay_table_insert = ("""INSERT INTO
+ songplays(songplay_id, start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
+ SELECT FROM_UNIXTIME(FLOOR(e.ts/1000)) as ts,e.user_id, e.level, s.song_id,s.artist_id, e.session_id, e.location, e.user_agent
+ FROM staging_events e 
+ JOIN staging_songs s 
+ ON e.song =s.title AND
+ e.artist = s.artist_name""")
+
+user_table_insert = (""" INSERT INTO 
+	users (user_id, first_name, last_name, gender, level)
+	SELECT user_id,first_name, last_name, gender,level
+	FROM staging_events
 """)
 
-user_table_insert = ("""
+song_table_insert = ("""INSERT INTO 
+	songs(song_id, title, artist_id, year, duration)
+	SELECT song_id, title,artist_id,year,duration
+	FROM staging_songs
+
 """)
 
-song_table_insert = ("""
+artist_table_insert = ("""INSERT INTO 
+	artists (artist_id, name, location, lattitude, longitude)
+	SELECT artist_id, name, location, lattitude, longitude
+	FROM staging_songs
 """)
 
-artist_table_insert = ("""
-""")
-
-time_table_insert = ("""
+time_table_insert = ("""INSERT INTO
+	times (start_time, hour, day, week, month, year, weekday)
+	SELECT ts, extract(hour from ts),extract(day from ts),extract(week from ts),extract(month from ts),extract(year from ts)
+	FROM staging_events
 """)
 
 # QUERY LISTS
