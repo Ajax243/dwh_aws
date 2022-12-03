@@ -2,6 +2,7 @@ import pandas as pd
 import boto3
 import json
 import configparser
+import sys
 
 
 #Load DWH Params from a file
@@ -51,12 +52,12 @@ def create_clients():
 	                       aws_access_key_id=KEY,
 	                       aws_secret_access_key=SECRET
 	                       )
-	return ec2,s3, iam, redshift
+	return ec2,s3,iam, redshift
 
-def create_iam_role():
+def create_iam_role(iam):
 	try:
-    print("1.1 Creating a new IAM Role") 
-    dwhRole = iam.create_role(
+    
+	    dwhRole = iam.create_role(
         Path='/',
         RoleName=DWH_IAM_ROLE_NAME,
         Description = "Allows Redshift clusters to call AWS services on your behalf.",
@@ -70,17 +71,17 @@ def create_iam_role():
 	    print(e)
 
 	iam.attach_role_policy(RoleName=DWH_IAM_ROLE_NAME,
-	                       PolicyArn="arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
-	                      )['ResponseMetadata']['HTTPStatusCode']
+		                       PolicyArn="arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+		                      )['ResponseMetadata']['HTTPStatusCode']
 
 
 	roleArn = iam.get_role(RoleName=DWH_IAM_ROLE_NAME)['Role']['Arn']
+	
 	return roleArn
 
-def create_cluster():
+def create_cluster(redshift,ec2,roleArn):
 	try:
-    response = redshift.create_cluster(        
-        #HW
+		response = redshift.create_cluster(
         ClusterType=DWH_CLUSTER_TYPE,
         NodeType=DWH_NODE_TYPE,
         NumberOfNodes=int(DWH_NUM_NODES),
@@ -97,13 +98,15 @@ def create_cluster():
 	except Exception as e:
 	    print(e)
 
-def open_access():
+def open_access(ec2,redshift):
 
+	myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
 	try:
-    vpc = ec2.Vpc(id=myClusterProps['VpcId'])
-    defaultSg = list(vpc.security_groups.all())[0]
-    print(defaultSg)
-    defaultSg.authorize_ingress(
+
+	    vpc = ec2.Vpc(id=myClusterProps['VpcId'])
+	    defaultSg = list(vpc.security_groups.all())[0]
+	    print(defaultSg)
+	    defaultSg.authorize_ingress(
         GroupName=defaultSg.group_name,
         CidrIp='0.0.0.0/0',
         IpProtocol='TCP',
@@ -114,7 +117,7 @@ def open_access():
 	    print(e)
 
 
-def delete_resources():
+def delete_resources(redshift,iam):
 	# Delete Redshift Cluster
 	redshift.delete_cluster( ClusterIdentifier=DWH_CLUSTER_IDENTIFIER,  SkipFinalClusterSnapshot=True)
 	
@@ -126,21 +129,27 @@ def delete_resources():
 
 
 def main():
+	ec2, s3, iam, redshift= create_clients()
+	
+	if sys.argv[1]=='delete':
+
+		delete_resources(redshift,iam)
+
+	else:
+
+		roleArn=create_iam_role(iam)
 
 
+		create_cluster(redshift,ec2,roleArn)
 
-	ec2, s3, iam, redshift= create_clients
+		
+		try:
+			open_access(ec2,redshift)
 
-	role_arn=create_iam_role()
+		except Exception as e:
 
-	create_cluster()
-	for i in range(60):
-            cluster = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_ID)['Clusters'][0]
-            if cluster['ClusterStatus'] == 'available':
-                break
-    try: 
-    	open_access()
-    except Exception as e:
-	    print(e)
-if__name__=='__main__':
-main()
+			print(e)
+	
+
+if __name__=="__main__":
+	main()
