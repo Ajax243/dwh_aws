@@ -101,10 +101,9 @@ staging_events_copy = ("""COPY staging_events FROM {} IAM_ROLE '{}' JSON {} regi
     config['S3']['LOG_JSONPATH'],
     config['DWH']['REGION'])
 
-staging_songs_copy = (""" COPY staging_songs FROM {} IAM_ROLE '{}' JSON {} region '{}';
-""").format(config['S3']['LOG_DATA'],
+staging_songs_copy = (""" COPY staging_songs FROM {} IAM_ROLE '{}'  region '{}';
+""").format(config['S3']['SONG_DATA'],
     config['IAM_ROLE']['ARN'],
-    config['S3']['LOG_JSONPATH'],
     config['DWH']['REGION'])
 
 # FINAL TABLES
