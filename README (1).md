@@ -26,9 +26,10 @@ This project aims atusing python to load data from an Amazon S3 Bucket into two 
 - Set ```AWS_ACCESS_KEY_ID``` and ```AWS_SECRET_ACCESS_KEY``` in ```dwh.cfg``` file
 - ADD a ```DB_PASSWORD``` in the ```CLUSTER``` and ```DWH``` sections in the ```dwh.cfg``` file
 - run ```python create_cluster.py run```
-- It will come back with a message that it couldn't open a connection as the cluster takes a while to be created.
+- It will print out an arn_role, copy it into ```ARN``` in the ```IAM ROLE``` section in the ```dwh.cfg``` file
+- It will also come back with a message that it couldn't open a connection as the cluster takes a while to be created.
 - After the cluster status is ```available``` from the AWS console run ```python create_cluster.py``` again to open tcp connection to the cluster
-- Take the endpoint name and remove everything after the port number from it and put it in the ```HOST``` in the ```dwh.cfg``` file
+- In the console, click the cluster name and copy the endpoint name at the top right corner of the page and remove everything starting with the port number until the end so that the last thing is '...amazon.com' and put it in the ```HOST``` in the ```dwh.cfg``` file
 - Run ```python create_tables.py```
 - Run ```etl.py```
 - Run ```python create_cluster delete``` to delete the cluster and IAM role
