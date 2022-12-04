@@ -30,6 +30,7 @@ DWH_IAM_ROLE_NAME      = config.get("DWH", "DWH_IAM_ROLE_NAME")
 
 
 def create_clients():
+	print('creating clients')
 	ec2 = boto3.resource('ec2',
                        region_name="us-west-2",
                        aws_access_key_id=KEY,
@@ -52,9 +53,12 @@ def create_clients():
 	                       aws_access_key_id=KEY,
 	                       aws_secret_access_key=SECRET
 	                       )
+	print('clients created')
+
 	return ec2,s3,iam, redshift
 
 def create_iam_role(iam):
+	print('creating IAM role and ARN below:')
 	try:
     
 	    dwhRole = iam.create_role(
@@ -76,10 +80,12 @@ def create_iam_role(iam):
 
 
 	roleArn = iam.get_role(RoleName=DWH_IAM_ROLE_NAME)['Role']['Arn']
+	print(roleArn)
 	
 	return roleArn
 
 def create_cluster(redshift,ec2,roleArn):
+	print('Creating cluster')
 	try:
 		response = redshift.create_cluster(
         ClusterType=DWH_CLUSTER_TYPE,
@@ -97,9 +103,11 @@ def create_cluster(redshift,ec2,roleArn):
     )
 	except Exception as e:
 	    print(e)
+	print('Cluster Created')
+
 
 def open_access(ec2,redshift):
-
+	print('Trying to open access')
 	myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
 	try:
 
@@ -115,21 +123,24 @@ def open_access(ec2,redshift):
     )
 	except Exception as e:
 	    print(e)
-
+	print('Access open')
 
 def delete_resources(redshift,iam):
 	# Delete Redshift Cluster
+	print('Deleting resources')
 	redshift.delete_cluster( ClusterIdentifier=DWH_CLUSTER_IDENTIFIER,  SkipFinalClusterSnapshot=True)
 	
 	# Delete IAM role
 
 	iam.detach_role_policy(RoleName=DWH_IAM_ROLE_NAME, PolicyArn="arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess")
 	iam.delete_role(RoleName=DWH_IAM_ROLE_NAME)
+	print('Resources will delete soon')
 
 
 
 def main():
 	ec2, s3, iam, redshift= create_clients()
+
 	
 	if sys.argv[1]=='delete':
 

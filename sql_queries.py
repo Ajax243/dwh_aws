@@ -20,7 +20,7 @@ time_table_drop = "DROP TABLE IF EXISTS times"
 
 
 staging_events_table_create= ("""  CREATE TABLE IF NOT EXISTS staging_events
-							( artist TEXT,
+							( artist TEXT ,
 						    auth TEXT,
 						    first_name TEXT,
 						    gender TEXT,
@@ -35,19 +35,20 @@ staging_events_table_create= ("""  CREATE TABLE IF NOT EXISTS staging_events
 						    session_id INT,
 						    song TEXT,
 						    status INTEGER,
-						    ts INT,
+						    ts BIGINT,
 						    user_agent TEXT,
-						    user_id TEXT );""")
+						    user_id TEXT )""")
 
-staging_songs_table_create = ("""  CREATE TABLE IF NOT EXISTS 
-									(artist_id TEXT,
-									artist_latitude FLOAT,
-									artist location TEXT,
-									artist longitude FLOAT,
+staging_songs_table_create = ("""  CREATE TABLE IF NOT EXISTS staging_songs
+									( artist_id TEXT ,
+									artist_latitude FLOAT ,
+									artist_location TEXT ,
+									artist_longitude FLOAT,
 									artist_name TEXT,
-									duration FLOAT,
+									duration FLOAT,									
 									num_songs INT,
 									song_id TEXT,
+									title TEXT ,
 									year INT); """)
 
 songplay_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
@@ -56,10 +57,10 @@ songplay_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
     	user_id TEXT DISTKEY,
     	level TEXT,
     	song_id TEXT,
-    	artist_id TEXT,
+    	artist_id TEXT ,
     	session_id INT,
     	location TEXT,
-    	user_agent TEXT) DISTSTYLE KEY;""")
+    	user_agent TEXT) diststyle key;""")
 
 user_table_create = ("""CREATE TABLE IF NOT EXISTS users
 	(user_id TEXT PRIMARY KEY SORTKEY,
@@ -68,19 +69,19 @@ user_table_create = ("""CREATE TABLE IF NOT EXISTS users
 	gender TEXT,
 	LEVEL TEXT) DISTSTYLE ALL;""")
 
-song_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
+song_table_create = (""" CREATE TABLE IF NOT EXISTS songs
 	(song_id TEXT PRIMARY KEY SORTKEY,
 		title TEXT,
 		artist_id TEXT DISTKEY, 
 		year INT,
-		duration FLOAT,) DISTSTYLE ALL;""")
+		duration FLOAT) DISTSTYLE KEY;""")
 
 artist_table_create = (""" CREATE TABLE IF NOT EXISTS artists
 	(artist_id TEXT PRIMARY KEY SORTKEY,
-	 name TEXT,
-	 location TEXT,
-	 latitude FLOAT,
-	 longitude FLOAT) DISTSTYLE ALL;""")
+	 artist_name TEXT,
+	 artist_location TEXT,
+	 artist_latitude FLOAT,
+	 artist_longitude FLOAT) DISTSTYLE ALL;""")
 
 time_table_create = (""" CREATE TABLE IF NOT EXISTS times 
 	(start_time TIMESTAMP PRIMARY KEY SORTKEY,
@@ -95,24 +96,22 @@ time_table_create = (""" CREATE TABLE IF NOT EXISTS times
 # STAGING TABLES
 
 staging_events_copy = ("""COPY staging_events FROM {} IAM_ROLE '{}' JSON {} region '{}';
-	""").format(
-	config['S3']['LOG_DATA'],
+	""").format(config['S3']['LOG_DATA'],
     config['IAM_ROLE']['ARN'],
     config['S3']['LOG_JSONPATH'],
-    config['CLUSTER']['REGION'])
+    config['DWH']['REGION'])
 
 staging_songs_copy = (""" COPY staging_songs FROM {} IAM_ROLE '{}' JSON {} region '{}';
-""").format(
-	config['S3']['LOG_DATA'],
+""").format(config['S3']['LOG_DATA'],
     config['IAM_ROLE']['ARN'],
     config['S3']['LOG_JSONPATH'],
-    config['CLUSTER']['REGION'])
+    config['DWH']['REGION'])
 
 # FINAL TABLES
 
 songplay_table_insert = ("""INSERT INTO
- songplays(songplay_id, start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
- SELECT FROM_UNIXTIME(FLOOR(e.ts/1000)) as ts,e.user_id, e.level, s.song_id,s.artist_id, e.session_id, e.location, e.user_agent
+ songplays( start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
+ SELECT TIMESTAMP 'epoch' + (e.ts / 1000) * INTERVAL '1 second' AS ts,e.user_id, e.level, s.song_id,s.artist_id, e.session_id, e.location, e.user_agent
  FROM staging_events e 
  JOIN staging_songs s 
  ON e.song =s.title AND
@@ -132,15 +131,16 @@ song_table_insert = ("""INSERT INTO
 """)
 
 artist_table_insert = ("""INSERT INTO 
-	artists (artist_id, name, location, lattitude, longitude)
-	SELECT artist_id, name, location, lattitude, longitude
+	artists (artist_id, artist_name, artist_location, artist_latitude, artist_longitude)
+	SELECT artist_id, artist_name, artist_location, artist_latitude, artist_longitude
 	FROM staging_songs
 """)
 
 time_table_insert = ("""INSERT INTO
 	times (start_time, hour, day, week, month, year, weekday)
-	SELECT ts, extract(hour from ts),extract(day from ts),extract(week from ts),extract(month from ts),extract(year from ts)
-	FROM staging_events
+	WITH proper_time AS(SELECT TIMESTAMP 'epoch' + (ts / 1000) * INTERVAL '1 second' as ts FROM staging_events)
+	SELECT ts, extract(hour from ts),extract(day from ts),extract(week from ts),extract(month from ts),extract(year from ts),extract(weekday from ts)
+	FROM proper_time
 """)
 
 # QUERY LISTS
