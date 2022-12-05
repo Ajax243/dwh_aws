@@ -108,7 +108,7 @@ staging_songs_copy = (""" COPY staging_songs FROM {} IAM_ROLE '{}' JSON 'auto' r
 
 # FINAL TABLES
 
-songplays_table_insert = ("""INSERT INTO
+songplay_table_insert = ("""INSERT INTO
  songplays( start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
  SELECT TIMESTAMP 'epoch' + (e.ts / 1000) * INTERVAL '1 second' AS ts,e.user_id, e.level, s.song_id,s.artist_id, e.session_id, e.location, e.user_agent
  FROM staging_events e 
