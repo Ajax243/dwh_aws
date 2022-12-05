@@ -53,8 +53,8 @@ staging_songs_table_create = ("""  CREATE TABLE IF NOT EXISTS staging_songs
 
 songplay_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
     ( songplay_id INT IDENTITY(0,1) PRIMARY KEY,
-    	start_time TIMESTAMP SORTKEY,
-    	user_id TEXT DISTKEY,
+    	start_time TIMESTAMP NOT NULL SORTKEY ,
+    	user_id TEXT NOT NULL DISTKEY,
     	level TEXT,
     	song_id TEXT,
     	artist_id TEXT ,
@@ -63,28 +63,28 @@ songplay_table_create = (""" CREATE TABLE IF NOT EXISTS songplays
     	user_agent TEXT) diststyle key;""")
 
 user_table_create = ("""CREATE TABLE IF NOT EXISTS users
-	(user_id TEXT PRIMARY KEY SORTKEY,
+	(user_id TEXT NOT NULL PRIMARY KEY SORTKEY,
 	first_name TEXT,
 	last_name TEXT,
 	gender TEXT,
 	LEVEL TEXT) DISTSTYLE ALL;""")
 
 song_table_create = (""" CREATE TABLE IF NOT EXISTS songs
-	(song_id TEXT PRIMARY KEY SORTKEY,
+	(song_id TEXT NOT NULL PRIMARY KEY SORTKEY,
 		title TEXT,
-		artist_id TEXT DISTKEY, 
+		artist_id NOT NULL TEXT DISTKEY, 
 		year INT,
 		duration FLOAT) DISTSTYLE KEY;""")
 
 artist_table_create = (""" CREATE TABLE IF NOT EXISTS artists
-	(artist_id TEXT PRIMARY KEY SORTKEY,
+	(artist_id TEXT NOT NULL PRIMARY KEY SORTKEY,
 	 artist_name TEXT,
 	 artist_location TEXT,
 	 artist_latitude FLOAT,
 	 artist_longitude FLOAT) DISTSTYLE ALL;""")
 
 time_table_create = (""" CREATE TABLE IF NOT EXISTS times 
-	(start_time TIMESTAMP PRIMARY KEY SORTKEY,
+	(start_time TIMESTAMP NOT NULL PRIMARY KEY SORTKEY,
 	hour INT, 
 	day INT,
 	week INT, 
@@ -108,7 +108,7 @@ staging_songs_copy = (""" COPY staging_songs FROM {} IAM_ROLE '{}' JSON 'auto' r
 
 # FINAL TABLES
 
-songplay_table_insert = ("""INSERT INTO
+songplays_table_insert = ("""INSERT INTO
  songplays( start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
  SELECT TIMESTAMP 'epoch' + (e.ts / 1000) * INTERVAL '1 second' AS ts,e.user_id, e.level, s.song_id,s.artist_id, e.session_id, e.location, e.user_agent
  FROM staging_events e 
@@ -118,27 +118,28 @@ songplay_table_insert = ("""INSERT INTO
 
 user_table_insert = (""" INSERT INTO 
 	users (user_id, first_name, last_name, gender, level)
-	SELECT user_id,first_name, last_name, gender,level
+	SELECT DISTINCT user_id,first_name, last_name, gender,level
 	FROM staging_events
+	WHERE page='NextSong'
 """)
 
 song_table_insert = ("""INSERT INTO 
 	songs(song_id, title, artist_id, year, duration)
-	SELECT song_id, title,artist_id,year,duration
+	SELECT DISTINCT song_id, title,artist_id,year,duration
 	FROM staging_songs
 
 """)
 
 artist_table_insert = ("""INSERT INTO 
 	artists (artist_id, artist_name, artist_location, artist_latitude, artist_longitude)
-	SELECT artist_id, artist_name, artist_location, artist_latitude, artist_longitude
+	SELECT DISTINCT artist_id, artist_name, artist_location, artist_latitude, artist_longitude
 	FROM staging_songs
 """)
 
 time_table_insert = ("""INSERT INTO
 	times (start_time, hour, day, week, month, year, weekday)
 	WITH proper_time AS(SELECT TIMESTAMP 'epoch' + (ts / 1000) * INTERVAL '1 second' as ts FROM staging_events)
-	SELECT ts, extract(hour from ts),extract(day from ts),extract(week from ts),extract(month from ts),extract(year from ts),extract(weekday from ts)
+	SELECT DISTINCT ts, extract(hour from ts),extract(day from ts),extract(week from ts),extract(month from ts),extract(year from ts),extract(weekday from ts)
 	FROM proper_time
 """)
 

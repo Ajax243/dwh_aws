@@ -30,6 +30,7 @@ DWH_IAM_ROLE_NAME      = config.get("DWH", "DWH_IAM_ROLE_NAME")
 
 
 def create_clients():
+	""" create the needed resources to create the cluster"""
 	print('creating clients')
 	ec2 = boto3.resource('ec2',
                        region_name="us-west-2",
@@ -58,6 +59,7 @@ def create_clients():
 	return ec2,s3,iam, redshift
 
 def create_iam_role(iam):
+	""" setting the right permissions to the IAM role"""
 	print('creating IAM role and ARN below:')
 	try:
     
@@ -85,6 +87,7 @@ def create_iam_role(iam):
 	return roleArn
 
 def create_cluster(redshift,ec2,roleArn):
+	"""creating the cluster with the right environment variables"""
 	print('Creating cluster')
 	try:
 		response = redshift.create_cluster(
@@ -107,6 +110,7 @@ def create_cluster(redshift,ec2,roleArn):
 
 
 def open_access(ec2,redshift):
+	"""opening TCP access to be able to access the cluster through the SDK"""
 	print('Trying to open access')
 	myClusterProps = redshift.describe_clusters(ClusterIdentifier=DWH_CLUSTER_IDENTIFIER)['Clusters'][0]
 	try:
@@ -126,6 +130,7 @@ def open_access(ec2,redshift):
 	print('Access open')
 
 def delete_resources(redshift,iam):
+	""" this function deletes the cluster and resources after finishing the work"""
 	# Delete Redshift Cluster
 	print('Deleting resources')
 	redshift.delete_cluster( ClusterIdentifier=DWH_CLUSTER_IDENTIFIER,  SkipFinalClusterSnapshot=True)
